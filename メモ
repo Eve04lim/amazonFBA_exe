@@ -3,5 +3,5 @@ exe化
 pyinstaller --onefile --windowed main.py
 
 B0797MCM3W
-
+B08Q9GP8Q6
 executable_path="chromedriver.exe"

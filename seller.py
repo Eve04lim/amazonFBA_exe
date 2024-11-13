@@ -1,6 +1,7 @@
 import json
 import time
 import re
+from tkinter import messagebox
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -8,7 +9,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from bs4 import BeautifulSoup
-import getpass
+import tkinter as tk
+from tkinter import simpledialog
+import getpass  
 
 def wait_for_page_load(driver, timeout=10):
     def page_has_loaded(driver):
@@ -58,7 +61,15 @@ def find_element_in_shadow_dom(driver, selector):
     return driver.execute_script(js_find_in_shadow, selector)
 
 def login_and_navigate_to_fee_calculator(email, password):
-    driver = webdriver.Chrome( r"C:\chromedriver\chromedriver.exe")  # ChromeDriverのパスを適切に設定してください
+        # Chromeのオプションを設定
+    #options = webdriver.ChromeOptions()
+    #options.add_argument("--headless")  # ヘッドレスモードで実行
+    #options.add_argument("--disable-gpu")  # GPUの使用を無効化
+    #options.add_argument("--window-size=1920,1080")  # ウィンドウサイズを設定
+
+    # ヘッドレスモードの設定を使用してブラウザを起動
+    #driver = webdriver.Chrome(executable_path="chromedriver.exe", options=options)
+    driver = webdriver.Chrome(r"C:\chromedriver\chromedriver.exe")  # ChromeDriverのパスを適切に設定してください
     driver.maximize_window()
     
     try:
@@ -100,7 +111,6 @@ def login_and_navigate_to_fee_calculator(email, password):
 
     except Exception as e:
         print(f"An error occurred during login or navigation: {e}")
-        driver.save_screenshot("error_screenshot.png")
         driver.quit()
         raise
 
@@ -108,7 +118,13 @@ def handle_otp(driver):
     try:
         otp_field = find_element_with_retry(driver, By.ID, "auth-mfa-otpcode", max_attempts=1)
         print("OTP page detected")
-        otp = input("ワンタイムパスワード（OTP）を入力してください: ")
+        
+        # GUIでOTPを入力
+        root = tk.Tk()
+        root.withdraw()
+        otp = simpledialog.askstring("Input", "ワンタイムパスワード（OTP）を入力してください:")
+        root.destroy()
+
         otp_field.send_keys(otp)
         submit_button = find_element_with_retry(driver, By.ID, "auth-signin-button")
         submit_button.click()
@@ -135,7 +151,6 @@ def select_marketplace(driver):
 
     except TimeoutException:
         print("Marketplace selection page not found or elements not interactable")
-        driver.save_screenshot("marketplace_selection_error.png")
 
 def ensure_fee_calculator_loaded(driver):
     try:
@@ -145,7 +160,6 @@ def ensure_fee_calculator_loaded(driver):
         print("Fee calculator page loaded successfully")
     except TimeoutException:
         print("Fee calculator page failed to load")
-        driver.save_screenshot("fee_calculator_load_error.png")
 
 def search_product(driver, asin):
     try:
@@ -166,7 +180,6 @@ def search_product(driver, asin):
 
     except Exception as e:
         print(f"An error occurred during product search: {e}")
-        driver.save_screenshot("search_error_screenshot.png")
         return False
 
 def locate_search_field(driver):
@@ -247,7 +260,6 @@ def wait_for_page_change(driver, original_url, original_source, timeout=10):
         return True
     except TimeoutException:
         print("No new elements appeared, search might have failed")
-        driver.save_screenshot("no_page_change.png")
         return False
 
 def extract_product_data(driver):
@@ -289,7 +301,6 @@ def extract_product_data(driver):
         }
     except Exception as e:
         print(f"データ抽出中にエラーが発生しました: {e}")
-        driver.save_screenshot("data_extraction_error.png")
         return None
 
 def load_json_data(filename):
@@ -330,12 +341,25 @@ def update_product_fees(driver, products):
         time.sleep(1)  # サーバーへの負荷を軽減するための遅延
 
     return updated_products
+def get_credentials():
+    root = tk.Tk()
+    root.withdraw()  # メインウィンドウを非表示に
+
+    email = simpledialog.askstring("Input", "Amazonセラーアカウントのメールアドレスまたは電話番号を入力してください:")
+    password = simpledialog.askstring("Input", "パスワードを入力してください:", show="*")
+
+    root.destroy()
+    return email, password
+
+def get_asin_code():
+    root = tk.Tk()
+    root.withdraw()  # メインウィンドウを非表示に
+    asin_code = simpledialog.askstring("Input", "調べたい商品のASINコードを入力してください:")
+    root.destroy()
+    return asin_code
+
 def main():
-    email = input("Amazonセラーアカウントのメールアドレスまたは電話番号を入力してください: ")
-    password = getpass.getpass("パスワードを入力してください: ")
-    
-    json_filename = "data.json"
-    products = load_json_data(json_filename)
+    email, password = get_credentials()  # GUIでログイン情報を取得
     
     driver = None
     try:
@@ -343,9 +367,44 @@ def main():
         if driver:
             time.sleep(5)
             
-            updated_products = update_product_fees(driver, products)
-            save_json_data(json_filename, updated_products)
-            print("All products have been processed and the JSON file has been updated.")
+        while True:
+            asin = get_asin_code()  # ASINコードをユーザーから取得
+
+            search_success = search_product(driver, asin)
+            if search_success:
+                product_data = extract_product_data(driver)
+                if product_data:
+                    result_message = (
+                        f"Amazon手数料: {product_data['amazon_fee']}\n"
+                        f"FBA手数料: {product_data['fba_fee']}\n"
+                        f"商品重量: {product_data['weight']}\n"
+                        f"競合者数: {product_data['competitors']}"
+                    )
+
+                    # 結果表示用ウィンドウを作成
+                    root = tk.Tk()
+                    root.title("抽出結果")
+
+                    # テキストウィジェットに結果を表示
+                    text_widget = tk.Text(root, wrap='word')
+                    text_widget.insert('1.0', result_message)
+                    text_widget.config(state='normal')  # 編集可能にしてコピーを許可
+                    text_widget.pack(expand=True, fill='both')
+
+                    root.mainloop()
+                else:
+                    messagebox.showwarning("抽出失敗", "データの抽出に失敗しました。")
+
+            # 次のASINを検索するか確認
+            continue_search = simpledialog.askstring("Continue", "次のASINコードを検索しますか？(yes/no):")
+            if continue_search.lower() == "yes":
+                # ASIN検索画面に戻る
+                driver.get("https://sellercentral.amazon.com/revcal")
+                wait_for_page_load(driver)
+                time.sleep(1)  # サーバーへの負荷を軽減するための遅延
+            else:
+                break
+                
     except Exception as e:
         print(f"エラーが発生しました: {e}")
     finally:

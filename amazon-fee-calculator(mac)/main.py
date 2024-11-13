@@ -62,15 +62,15 @@ def find_element_in_shadow_dom(driver, selector):
 
 def login_and_navigate_to_fee_calculator(email, password):
         # Chromeのオプションを設定
-    #options = webdriver.ChromeOptions()
-    #options.add_argument("--headless")  # ヘッドレスモードで実行
-    #options.add_argument("--disable-gpu")  # GPUの使用を無効化
-    #options.add_argument("--window-size=1920,1080")  # ウィンドウサイズを設定
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")  # ヘッドレスモードで実行
+    options.add_argument("--disable-gpu")  # GPUの使用を無効化
+    options.add_argument("--window-size=1920,1080")  # ウィンドウサイズを設定
 
     # ヘッドレスモードの設定を使用してブラウザを起動
-    #driver = webdriver.Chrome(executable_path="chromedriver.exe", options=options)
-    driver = webdriver.Chrome(r"C:\chromedriver\chromedriver.exe")  # ChromeDriverのパスを適切に設定してください
-    driver.maximize_window()
+    driver = webdriver.Chrome(executable_path="chromedriver", options=options)
+    #driver = webdriver.Chrome(r"C:\chromedriver\chromedriver.exe")  # ChromeDriverのパスを適切に設定してください
+    #driver.maximize_window()
     
     try:
         driver.get("https://sellercentral.amazon.com/revcal")
@@ -367,44 +367,43 @@ def main():
         if driver:
             time.sleep(5)
             
-            fee_calculator_url = "https://sellercentral.amazon.com/revcal"  # 手数料計算ツールのURL
-            while True:
-                asin = get_asin_code()  # ASINコードをユーザーから取得
-                
-                search_success = search_product(driver, asin)
-                if search_success:
-                    product_data = extract_product_data(driver)
-                    if product_data:
-                        result_message = (
-                            f"Amazon手数料: {product_data['amazon_fee']}\n"
-                            f"FBA手数料: {product_data['fba_fee']}\n"
-                            f"商品重量: {product_data['weight']}\n"
-                            f"競合者数: {product_data['competitors']}"
-                        )
+        while True:
+            asin = get_asin_code()  # ASINコードをユーザーから取得
 
-                        # 結果表示用ウィンドウを作成
-                        root = tk.Tk()
-                        root.title("抽出結果")
-                        
-                        # テキストウィジェットに結果を表示
-                        text_widget = tk.Text(root, wrap='word')
-                        text_widget.insert('1.0', result_message)
-                        text_widget.config(state='normal')  # 編集可能にしてコピーを許可
-                        text_widget.pack(expand=True, fill='both')
-                        
-                        root.mainloop()
-                    else:
-                        messagebox.showwarning("抽出失敗", "データの抽出に失敗しました。")
+            search_success = search_product(driver, asin)
+            if search_success:
+                product_data = extract_product_data(driver)
+                if product_data:
+                    result_message = (
+                        f"Amazon手数料: {product_data['amazon_fee']}\n"
+                        f"FBA手数料: {product_data['fba_fee']}\n"
+                        f"商品重量: {product_data['weight']}\n"
+                        f"競合者数: {product_data['competitors']}"
+                    )
 
-                # 次のASINを検索するか確認
-                continue_search = simpledialog.askstring("Continue", "次のASINコードを検索しますか？(yes/no):")
-                if continue_search.lower() != "yes":
-                    # 手数料計算ツールのページに戻る
-                    driver.get(fee_calculator_url)
-                    wait_for_page_load(driver)
-                    time.sleep(1)  # サーバーへの負荷を軽減するための遅延
+                    # 結果表示用ウィンドウを作成
+                    root = tk.Tk()
+                    root.title("抽出結果")
+
+                    # テキストウィジェットに結果を表示
+                    text_widget = tk.Text(root, wrap='word')
+                    text_widget.insert('1.0', result_message)
+                    text_widget.config(state='normal')  # 編集可能にしてコピーを許可
+                    text_widget.pack(expand=True, fill='both')
+
+                    root.mainloop()
                 else:
-                    break
+                    messagebox.showwarning("抽出失敗", "データの抽出に失敗しました。")
+
+            # 次のASINを検索するか確認
+            continue_search = simpledialog.askstring("Continue", "次のASINコードを検索しますか？(yes/no):")
+            if continue_search.lower() == "yes":
+                # ASIN検索画面に戻る
+                driver.get("https://sellercentral.amazon.com/revcal")
+                wait_for_page_load(driver)
+                time.sleep(1)  # サーバーへの負荷を軽減するための遅延
+            else:
+                break
                 
     except Exception as e:
         print(f"エラーが発生しました: {e}")
